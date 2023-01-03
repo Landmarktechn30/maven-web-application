@@ -1,0 +1,47 @@
+node {
+    def mvnHome = tool name: 'maven3.8.6'
+    stage('1codeClone') { // for display purposes
+        // Get some code from a GitHub repository
+       //sh "git clone https://github.com/Landmarktechn30/maven-web-application"
+        // Get the Maven tool.
+        // ** NOTE: This 'M3' Maven tool must be configured
+        // **       in the global configuration.
+        //mvnHome = tool 'M3'
+        git 'https://github.com/Landmarktechn30/maven-web-application'
+        //bat "git clone https://github.com/Landmarktechn30/maven-web-application" (for windows OS)
+    }
+    stage('2test&build'){
+        sh "${mvnHome}/bin/mvn clean package"
+    }
+    stage('3codeQuality'){
+         sh "${mvnHome}/bin/mvn sonar:sonar"
+    }
+    stage('4uploadArtifacts'){
+        sh "${mvnHome}/bin/mvn deploy"
+       // http://52.14.133.235:8081/repository/tesla-snapshots/
+       //http://52.14.133.235:8081/repository/tesla-releases/
+       //configure pom.xml
+       //vi into settings.xml file in maven Jenkins
+    }
+    stage('5deploy2uat'){
+        sh "echo deploy to UAT"
+        sh "sleep 50"
+        deploy adapters: [tomcat9(credentialsId: 'tomcat-credentials', path: '', url: 'http://52.14.246.5:8080/')], contextPath: null, war: 'target/*.war'
+    }
+    stage('6approvalGate'){
+        sh "echo ready for review"
+        //we are using a timeout parameter
+        timeout(time:5, unit: 'DAYS'){  //unit could be: DAYS, MINUTES. we have a chosen a 5 day approval gate
+        //we are going to pass a message. after 5 days the message disappears
+        input message: 'Application ready for deployment. Please review and approve'
+        }
+    }
+    stage('7deploy2Prod'){
+         sh "echo ready for review"
+    }
+    stage('8emailNotification'){
+        emailext body: '''Hi Simon,
+Please, check build status.
+                 Landmark Technologies (sme)''', subject: 'Build Status', to: 'egbesimon66@gmail.com'
+    }
+}
