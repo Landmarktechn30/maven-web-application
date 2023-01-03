@@ -1,0 +1,81 @@
+pipeline{
+    agent any
+    tools {
+        maven "maven3.8.6"
+    }
+    stages{
+        stage('1getCode'){
+            steps{
+                sh "echo 'cloning the latest application version' "
+                git 'https://github.com/Landmarktechn30/maven-web-application'
+                //sh "git clone https://github.com/Landmarktechn30/maven-web-application"
+        }
+    }
+    stage('2Test&Build'){
+        steps{
+            sh "echo 'running JUnit test Cases' "
+            sh "echo 'testing must succeed inorder to create artifacts' "
+            sh "mvn clean package"
+        }
+    }
+    stage('4codeQuality'){
+        steps{
+        sh "echo 'performing code quality analysis' "
+        sh "mvn sonar:sonar"
+        }
+    }
+    stage('5uploadNexus'){
+        steps{
+        sh "mvn deploy"
+        }
+    }
+   stage('6deploy2uat'){
+     steps{  
+         deploy adapters: [tomcat9(credentialsId: 'tomcat-credentials', path: '', url: 'http://52.14.246.5:8080/')], contextPath: null, war: 'target/*war'
+   }
+   }
+    
+   stage('7approvalGate'){
+       steps{
+        sh "echo ready for review"
+        //we are using a timeout parameter
+        timeout(time:5, unit: 'DAYS'){  //unit could be: DAYS, MINUTES. we have a chosen a 5 day approval gate
+        //we are going to pass a message. after 5 days the message disappears
+        input message: 'Application ready for deployment. Please review and approve'
+        }
+   }
+   }
+    stage('8deploy2prod'){
+       steps{ 
+           sh "echo ready for review"
+       }
+    }
+    }
+
+    //stage('9emailnotification'){}
+    
+    post{
+        always{
+            emailext body: '''Hey guys,
+Good job build and deployment.
+
+Landmark Technologies
++1365-476-2656''', subject: 'success', to: 'egbesimon66@gmail.com'
+        }
+        success{
+            emailext body: '''Hey guys,
+Good job build and deployment.
+
+Landmark Technologies
++1365-476-2656''', subject: 'success', to: 'egbesimon66@gmail.com'
+        }
+        failure{
+            emailext body: '''Hey guys,
+Build failed and so deployment unsuccessful.
+
+Landmark Technologies
++1365-476-2656''', subject: 'failure', to: 'egbesimon66@gmail.com'
+        }
+    }
+    }
+
